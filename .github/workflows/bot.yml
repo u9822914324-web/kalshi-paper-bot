@@ -11,12 +11,24 @@ concurrency:
 
 permissions:
   contents: write            # lets the bot save state.json, trades.csv, README.md back to the repo
+  actions: write             # lets the 7-day stop step turn the schedule off
 
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
+      - name: Stop after the 7-day test
+        env:
+          STOP_AT: "2026-10-15T20:05:00Z"   # 7 days after the first Nemotron run
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%s)" -ge "$(date -u -d "$STOP_AT" +%s)" ]; then
+            echo "7-day test is over: turning the schedule off"
+            gh workflow disable bot.yml --repo "$GITHUB_REPOSITORY"
+            gh run cancel "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY"
+            sleep 60
+          fi
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
