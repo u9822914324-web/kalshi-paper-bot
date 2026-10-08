@@ -4,7 +4,7 @@ Fake money only. Reads public Kalshi + Coinbase data, never places orders.
 Run:  python bot.py        (needs ANTHROPIC_API_KEY)
 Test: python bot.py test   (math check + live data fetch, no Claude call)
 """
-import csv, json, math, sys, time
+import csv, json, math, os, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -21,6 +21,8 @@ HERE = Path(__file__).parent
 STATE = HERE / "state.json"
 LOG = HERE / "trades.csv"
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
+RUN_SECONDS = int(os.environ.get("RUN_SECONDS", 0))  # 0 = run forever
+PUSH = os.environ.get("PUSH") == "1"                 # GitHub Actions: commit scoreboard after each trade
 
 
 def get(url):
@@ -101,7 +103,37 @@ def log_row(row):
         w.writerow(row)
 
 
+def publish(s):
+    # README.md scoreboard; with PUSH=1 also commit + push it so GitHub shows it
+    rows = list(csv.DictReader(LOG.open())) if LOG.exists() else []
+    lines = [f"| {r['time']} | {r['side']} | ${float(r['price']):.3f} | {'WIN' if r['won'] == 'True' else 'LOSS'} "
+             f"| {float(r['pnl']):+.2f} | ${float(r['balance']):.2f} |" for r in reversed(rows[-20:])]
+    rate = f"{s['wins'] / s['trades']:.0%}" if s["trades"] else "n/a"
+    (HERE / "README.md").write_text(f"""# Kalshi paper bot
+
+Claude Opus 5.5 trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
+
+## Scoreboard
+
+| Balance | Profit | Trades | Win rate | AI cost | Open bets |
+|---|---|---|---|---|---|
+| ${s['balance']:.2f} | {s['balance'] - START_BALANCE:+.2f} | {s['trades']} | {rate} | ${s['ai_cost']:.2f} | {len(s['pending'])} |
+
+Start ${START_BALANCE:.0f}, stops at ${TARGET:.0f} or $0. {CONTRACTS} contracts per trade, Kalshi taker fee included.
+Updated {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.
+
+## Last 20 trades
+
+| Time | Side | Price | Result | P&L | Balance |
+|---|---|---|---|---|---|
+""" + "\n".join(lines) + "\n")
+    if PUSH:
+        cmd = "git add -A && (git commit -qm 'bot: update scoreboard' || true) && git pull -q --rebase && git push -q"
+        subprocess.run(cmd, shell=True, cwd=HERE)
+
+
 def settle(s):
+    done = 0
     for t in list(s["pending"]):
         m = get(f"{KALSHI}/markets/{t['ticker']}")["market"]
         if m.get("result") not in ("yes", "no"):
@@ -112,9 +144,11 @@ def settle(s):
         s["trades"] += 1
         s["wins"] += won
         s["pending"].remove(t)
+        done += 1
         log_row({**t, "result": m["result"], "won": won, "pnl": p, "balance": s["balance"]})
         print(f"SETTLED {t['ticker']} {t['side']} {'WIN' if won else 'LOSS'} {p:+.2f} | "
               f"balance ${s['balance']:.2f} | {s['wins']}/{s['trades']} wins | AI cost ${s['ai_cost']:.2f}")
+    return done
 
 
 def main():
@@ -122,14 +156,16 @@ def main():
     client = anthropic.Anthropic()
     s = load()
     print(f"PAPER MODE | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
-    while True:
+    end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
+    while time.time() < end:
         try:
-            settle(s)
-            save(s)
+            if settle(s):
+                save(s)
+                publish(s)
             if s["balance"] >= TARGET or s["balance"] <= 0:
                 if not s["pending"]:
                     print(f"DONE | balance ${s['balance']:.2f} | AI cost ${s['ai_cost']:.2f}")
-                    return
+                    break
             else:
                 m = open_market()
                 if m and m["ticker"] not in s["seen"]:
@@ -152,6 +188,8 @@ def main():
         except Exception as e:  # network or API blips: log and keep running
             print("error, skipping:", e)
         time.sleep(20)
+    save(s)
+    publish(s)
 
 
 def selftest():
