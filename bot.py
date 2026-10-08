@@ -154,6 +154,7 @@ def settle(s):
 def main():
     import anthropic
     client = anthropic.Anthropic()
+    client.models.retrieve(MODEL)  # free call: crash now on a bad API key instead of looping for hours
     s = load()
     print(f"PAPER MODE | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
     end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
