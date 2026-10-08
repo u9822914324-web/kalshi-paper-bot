@@ -21,14 +21,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install anthropic
       - run: python bot.py test
       - run: |
           git config user.name "paper-bot"
           git config user.email "paper-bot@users.noreply.github.com"
       - run: python -u bot.py
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           RUN_SECONDS: "21000"   # 5h50m, leaves time to save before GitHub's 6h limit
           PUSH: "1"              # bot pushes the scoreboard (README.md) after every settled trade
       - name: Save trades

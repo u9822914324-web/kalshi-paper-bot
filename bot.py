@@ -1,12 +1,13 @@
-"""Paper-trading bot: Claude Opus 5.5 picks UP/DOWN on Kalshi 15-minute BTC markets.
+"""Paper-trading bot: Nemotron 3 Ultra (free on OpenCode Zen) picks UP/DOWN on Kalshi 15-minute BTC markets.
 
 Fake money only. Reads public Kalshi + Coinbase data, never places orders.
-Run:  python bot.py        (needs ANTHROPIC_API_KEY)
-Test: python bot.py test   (math check + live data fetch, no Claude call)
+Run:  python bot.py        (needs OPENCODE_API_KEY from opencode.ai/auth)
+Test: python bot.py test   (math check + live data fetch, no AI call)
 """
-import csv, json, math, os, subprocess, sys, time
+import csv, json, math, os, re, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import urlopen, Request
 
 # ---- settings ----
@@ -14,8 +15,8 @@ SERIES = "KXBTC15M"
 CONTRACTS = 300          # contracts per trade (~$150 at 50c, same as video)
 START_BALANCE = 1000.0   # fake dollars
 TARGET = 1200.0          # stop when balance reaches this
-MODEL = "claude-opus-5-5"
-IN_PRICE, OUT_PRICE = 4 / 1e6, 20 / 1e6   # Opus 5.5 $ per token
+MODEL = "nemotron-3-ultra-free"
+AI_URL = "https://opencode.ai/zen/v1/chat/completions"
 
 HERE = Path(__file__).parent
 STATE = HERE / "state.json"
@@ -52,7 +53,28 @@ def candles(granularity, n):
              "o": r[3], "h": r[2], "l": r[1], "c": r[4]} for r in reversed(rows)]
 
 
-def ask_claude(client, m, mins_left):
+def chat(prompt, max_tokens=4000):
+    body = json.dumps({"model": MODEL, "max_tokens": max_tokens,
+                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    req = Request(AI_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": "paper-bot",
+                                              "Authorization": f"Bearer {os.environ['OPENCODE_API_KEY']}"})
+    with urlopen(req, timeout=180) as r:
+        return json.load(r)["choices"][0]["message"]["content"] or ""
+
+
+def parse_decision(text):
+    # model may think out loud first; take the last {...} that has a valid direction
+    for blob in reversed(re.findall(r"\{[^{}]*\}", text)):
+        try:
+            d = json.loads(blob)
+        except ValueError:
+            continue
+        if d.get("direction") in ("UP", "DOWN", "SKIP"):
+            return {"direction": d["direction"], "reason": str(d.get("reason", ""))}
+    return {"direction": "SKIP", "reason": "no valid answer from model"}
+
+
+def ask_ai(m, mins_left):
     prompt = f"""Kalshi market: "{m['title']}" ({m['ticker']}).
 Resolves YES (UP) if BTC's 60-second average price at close is >= the 60-second average at open.
 Open reference: {m.get('yes_sub_title')}. Minutes left: {mins_left:.1f}.
@@ -64,30 +86,15 @@ BTC-USD 1-minute candles (last 30):
 BTC-USD 15-minute candles (last 24):
 {json.dumps(candles(900, 24))}
 
-Pick UP, DOWN, or SKIP. Only pick a side if you think its win chance beats its ask price plus fee."""
-    resp = client.beta.messages.create(
-        model=MODEL,
-        max_tokens=16000,
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-        output_config={"effort": "medium", "format": {"type": "json_schema", "schema": {
-            "type": "object",
-            "properties": {"direction": {"type": "string", "enum": ["UP", "DOWN", "SKIP"]},
-                           "reason": {"type": "string"}},
-            "required": ["direction", "reason"], "additionalProperties": False}}},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    cost = resp.usage.input_tokens * IN_PRICE + resp.usage.output_tokens * OUT_PRICE
-    if resp.stop_reason == "refusal":
-        return {"direction": "SKIP", "reason": "model refused"}, cost
-    text = next(b.text for b in resp.content if b.type == "text")
-    return json.loads(text), cost
+Pick UP, DOWN, or SKIP. Only pick a side if you think its win chance beats its ask price plus fee.
+End your reply with one line of JSON only: {{"direction": "UP" | "DOWN" | "SKIP", "reason": "<one sentence>"}}"""
+    return parse_decision(chat(prompt))
 
 
 def load():
     if STATE.exists():
         return json.loads(STATE.read_text())
-    return {"balance": START_BALANCE, "ai_cost": 0.0, "wins": 0, "trades": 0, "pending": [], "seen": []}
+    return {"balance": START_BALANCE, "wins": 0, "trades": 0, "pending": [], "seen": []}
 
 
 def save(s):
@@ -111,13 +118,13 @@ def publish(s):
     rate = f"{s['wins'] / s['trades']:.0%}" if s["trades"] else "n/a"
     (HERE / "README.md").write_text(f"""# Kalshi paper bot
 
-Claude Opus 5.5 trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
+Nemotron 3 Ultra (free on OpenCode Zen) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
 
 ## Scoreboard
 
-| Balance | Profit | Trades | Win rate | AI cost | Open bets |
-|---|---|---|---|---|---|
-| ${s['balance']:.2f} | {s['balance'] - START_BALANCE:+.2f} | {s['trades']} | {rate} | ${s['ai_cost']:.2f} | {len(s['pending'])} |
+| Balance | Profit | Trades | Win rate | Open bets |
+|---|---|---|---|---|
+| ${s['balance']:.2f} | {s['balance'] - START_BALANCE:+.2f} | {s['trades']} | {rate} | {len(s['pending'])} |
 
 Start ${START_BALANCE:.0f}, stops at ${TARGET:.0f} or $0. {CONTRACTS} contracts per trade, Kalshi taker fee included.
 Updated {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.
@@ -147,16 +154,14 @@ def settle(s):
         done += 1
         log_row({**t, "result": m["result"], "won": won, "pnl": p, "balance": s["balance"]})
         print(f"SETTLED {t['ticker']} {t['side']} {'WIN' if won else 'LOSS'} {p:+.2f} | "
-              f"balance ${s['balance']:.2f} | {s['wins']}/{s['trades']} wins | AI cost ${s['ai_cost']:.2f}")
+              f"balance ${s['balance']:.2f} | {s['wins']}/{s['trades']} wins")
     return done
 
 
 def main():
-    import anthropic
-    client = anthropic.Anthropic()
-    client.models.retrieve(MODEL)  # free call: crash now on a bad API key instead of looping for hours
+    chat("Reply with OK.", max_tokens=200)  # crash now on a bad API key instead of looping for hours
     s = load()
-    print(f"PAPER MODE | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
+    print(f"PAPER MODE | {MODEL} | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
     end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
     while time.time() < end:
         try:
@@ -165,7 +170,7 @@ def main():
                 publish(s)
             if s["balance"] >= TARGET or s["balance"] <= 0:
                 if not s["pending"]:
-                    print(f"DONE | balance ${s['balance']:.2f} | AI cost ${s['ai_cost']:.2f}")
+                    print(f"DONE | balance ${s['balance']:.2f}")
                     break
             else:
                 m = open_market()
@@ -174,8 +179,7 @@ def main():
                     close = datetime.fromisoformat(m["close_time"].replace("Z", "+00:00"))
                     mins_left = (close - datetime.now(timezone.utc)).total_seconds() / 60
                     if mins_left >= 12:  # skip markets joined mid-session
-                        d, cost = ask_claude(client, m, mins_left)
-                        s["ai_cost"] = round(s["ai_cost"] + cost, 4)
+                        d = ask_ai(m, mins_left)
                         print(f"{m['ticker']} AI: {d['direction']} - {d['reason'][:200]}")
                         if d["direction"] != "SKIP":
                             m = get(f"{KALSHI}/markets/{m['ticker']}")["market"]  # fresh quote
@@ -186,7 +190,11 @@ def main():
                                                      "price": price, "contracts": CONTRACTS})
                                 print(f"  PAPER BUY {CONTRACTS} {d['direction']} @ ${price:.3f}")
                     save(s)
-        except Exception as e:  # network or API blips: log and keep running
+        except HTTPError as e:
+            if e.code in (401, 403):
+                raise  # bad key: stop the run so it shows red on GitHub
+            print("error, skipping:", e)
+        except Exception as e:  # network blips: log and keep running
             print("error, skipping:", e)
         time.sleep(20)
     save(s)
@@ -197,6 +205,8 @@ def selftest():
     assert taker_fee(300, 0.5) == 5.25
     assert pnl(300, 0.5, True) == 150 - 5.25
     assert pnl(300, 0.5, False) == -150 - 5.25
+    assert parse_decision('thinking {x} ... {"direction": "DOWN", "reason": "r"}')["direction"] == "DOWN"
+    assert parse_decision("no json here")["direction"] == "SKIP"
     m = open_market()
     print("market ok:", m["ticker"], "UP", m["yes_ask_dollars"], "DOWN", m["no_ask_dollars"])
     print("candles ok:", candles(60, 2))
