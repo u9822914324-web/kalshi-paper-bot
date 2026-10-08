@@ -1,7 +1,7 @@
-"""Paper-trading bot: Nemotron 3 Ultra (free on OpenCode Zen) picks UP/DOWN on Kalshi 15-minute BTC markets.
+"""Paper-trading bot: NVIDIA Nemotron 3 Nano (run locally with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
 
 Fake money only. Reads public Kalshi + Coinbase data, never places orders.
-Run:  python bot.py        (needs OPENCODE_API_KEY from opencode.ai/auth)
+Run:  python bot.py        (needs Ollama running: ollama pull nemotron-3-nano:4b; no API key)
 Test: python bot.py test   (math check + live data fetch, no AI call)
 """
 import csv, json, math, os, re, subprocess, sys, time
@@ -15,8 +15,9 @@ SERIES = "KXBTC15M"
 CONTRACTS = 300          # contracts per trade (~$150 at 50c, same as video)
 START_BALANCE = 1000.0   # fake dollars
 TARGET = 1200.0          # stop when balance reaches this
-MODEL = "nemotron-3-ultra-free"
-AI_URL = "https://opencode.ai/zen/v1/chat/completions"
+MODEL = os.environ.get("AI_MODEL", "nemotron-3-nano:4b")
+AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
+AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
 
 HERE = Path(__file__).parent
 STATE = HERE / "state.json"
@@ -56,9 +57,10 @@ def candles(granularity, n):
 def chat(prompt, max_tokens=4000):
     body = json.dumps({"model": MODEL, "max_tokens": max_tokens,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
-    req = Request(AI_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": "paper-bot",
-                                              "Authorization": f"Bearer {os.environ['OPENCODE_API_KEY']}"})
-    with urlopen(req, timeout=180) as r:
+    headers = {"Content-Type": "application/json", "User-Agent": "paper-bot"}
+    if AI_KEY:
+        headers["Authorization"] = f"Bearer {AI_KEY}"
+    with urlopen(Request(AI_URL, data=body, headers=headers), timeout=600) as r:  # CPU model: can be slow
         return json.load(r)["choices"][0]["message"]["content"] or ""
 
 
@@ -118,7 +120,7 @@ def publish(s):
     rate = f"{s['wins'] / s['trades']:.0%}" if s["trades"] else "n/a"
     (HERE / "README.md").write_text(f"""# Kalshi paper bot
 
-Nemotron 3 Ultra (free on OpenCode Zen) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
+AI model `{MODEL}` (NVIDIA Nemotron 3 Nano, run free on GitHub's server) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
 
 ## Scoreboard
 
@@ -159,7 +161,7 @@ def settle(s):
 
 
 def main():
-    chat("Reply with OK.", max_tokens=200)  # crash now on a bad API key instead of looping for hours
+    chat("Reply with OK.", max_tokens=200)  # crash now if the AI isn't reachable instead of looping for hours
     s = load()
     print(f"PAPER MODE | {MODEL} | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
     end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
