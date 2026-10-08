@@ -1,0 +1,10 @@
+{
+ "balance": 1000.0,
+ "ai_cost": 0.0,
+ "wins": 0,
+ "trades": 0,
+ "pending": [],
+ "seen": [
+  "KXBTC15M-26OCT081415-15"
+ ]
+}
