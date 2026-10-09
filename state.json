@@ -3,7 +3,22 @@
  "ai_cost": 0.0,
  "wins": 4,
  "trades": 7,
- "pending": [],
+ "pending": [
+  {
+   "time": "2026-10-09T17:03:51",
+   "ticker": "KXBTC15M-26OCT091315-15",
+   "side": "UP",
+   "price": 0.43,
+   "contracts": 300
+  },
+  {
+   "time": "2026-10-09T17:33:09",
+   "ticker": "KXBTC15M-26OCT091345-45",
+   "side": "UP",
+   "price": 0.36,
+   "contracts": 300
+  }
+ ],
  "seen": [
   "KXBTC15M-26OCT081415-15",
   "KXBTC15M-26OCT081615-15",
@@ -19,6 +34,10 @@
   "KXBTC15M-26OCT091200-00",
   "KXBTC15M-26OCT091215-15",
   "KXBTC15M-26OCT091230-30",
-  "KXBTC15M-26OCT091245-45"
+  "KXBTC15M-26OCT091245-45",
+  "KXBTC15M-26OCT091300-00",
+  "KXBTC15M-26OCT091315-15",
+  "KXBTC15M-26OCT091330-30",
+  "KXBTC15M-26OCT091345-45"
  ]
 }
