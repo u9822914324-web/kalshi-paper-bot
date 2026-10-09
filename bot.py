@@ -164,6 +164,7 @@ def main():
     s = load()
     print(f"PAPER MODE | {MODEL} | balance ${s['balance']:.2f} | no limits | {CONTRACTS} contracts/trade")
     end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
+    publish(s)  # refresh the scoreboard page at every start
     while time.time() < end:
         try:
             if settle(s):
