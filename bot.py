@@ -14,7 +14,6 @@ from urllib.request import urlopen, Request
 SERIES = "KXBTC15M"
 CONTRACTS = 300          # contracts per trade (~$150 at 50c, same as video)
 START_BALANCE = 1000.0   # fake dollars
-TARGET = 1200.0          # stop when balance reaches this
 MODEL = os.environ.get("AI_MODEL", "nemotron-3-nano:4b")
 AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
 AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
@@ -128,7 +127,7 @@ AI model `{MODEL}` (NVIDIA Nemotron 3 Nano, run free on GitHub's server) trades 
 |---|---|---|---|---|
 | ${s['balance']:.2f} | {s['balance'] - START_BALANCE:+.2f} | {s['trades']} | {rate} | {len(s['pending'])} |
 
-Start ${START_BALANCE:.0f}, stops at ${TARGET:.0f} or $0. {CONTRACTS} contracts per trade, Kalshi taker fee included.
+Start ${START_BALANCE:.0f}, no stop limits (balance can go negative). {CONTRACTS} contracts per trade, Kalshi taker fee included.
 Updated {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.
 
 ## Last 20 trades
@@ -163,35 +162,30 @@ def settle(s):
 def main():
     chat("Reply with OK.", max_tokens=200)  # crash now if the AI isn't reachable instead of looping for hours
     s = load()
-    print(f"PAPER MODE | {MODEL} | balance ${s['balance']:.2f} | target ${TARGET:.0f} | {CONTRACTS} contracts/trade")
+    print(f"PAPER MODE | {MODEL} | balance ${s['balance']:.2f} | no limits | {CONTRACTS} contracts/trade")
     end = time.time() + RUN_SECONDS if RUN_SECONDS else float("inf")
     while time.time() < end:
         try:
             if settle(s):
                 save(s)
                 publish(s)
-            if s["balance"] >= TARGET or s["balance"] <= 0:
-                if not s["pending"]:
-                    print(f"DONE | balance ${s['balance']:.2f}")
-                    break
-            else:
-                m = open_market()
-                if m and m["ticker"] not in s["seen"]:
-                    s["seen"] = (s["seen"] + [m["ticker"]])[-50:]
-                    close = datetime.fromisoformat(m["close_time"].replace("Z", "+00:00"))
-                    mins_left = (close - datetime.now(timezone.utc)).total_seconds() / 60
-                    if mins_left >= 12:  # skip markets joined mid-session
-                        d = ask_ai(m, mins_left)
-                        print(f"{m['ticker']} AI: {d['direction']} - {d['reason'][:200]}")
-                        if d["direction"] != "SKIP":
-                            m = get(f"{KALSHI}/markets/{m['ticker']}")["market"]  # fresh quote
-                            price = float(m["yes_ask_dollars" if d["direction"] == "UP" else "no_ask_dollars"])
-                            if 0 < price < 1 and CONTRACTS * price <= s["balance"]:
-                                s["pending"].append({"time": datetime.now().isoformat(timespec="seconds"),
-                                                     "ticker": m["ticker"], "side": d["direction"],
-                                                     "price": price, "contracts": CONTRACTS})
-                                print(f"  PAPER BUY {CONTRACTS} {d['direction']} @ ${price:.3f}")
-                    save(s)
+            m = open_market()
+            if m and m["ticker"] not in s["seen"]:
+                s["seen"] = (s["seen"] + [m["ticker"]])[-50:]
+                close = datetime.fromisoformat(m["close_time"].replace("Z", "+00:00"))
+                mins_left = (close - datetime.now(timezone.utc)).total_seconds() / 60
+                if mins_left >= 12:  # skip markets joined mid-session
+                    d = ask_ai(m, mins_left)
+                    print(f"{m['ticker']} AI: {d['direction']} - {d['reason'][:200]}")
+                    if d["direction"] != "SKIP":
+                        m = get(f"{KALSHI}/markets/{m['ticker']}")["market"]  # fresh quote
+                        price = float(m["yes_ask_dollars" if d["direction"] == "UP" else "no_ask_dollars"])
+                        if 0 < price < 1:  # no balance limit: fake balance may go negative
+                            s["pending"].append({"time": datetime.now().isoformat(timespec="seconds"),
+                                                 "ticker": m["ticker"], "side": d["direction"],
+                                                 "price": price, "contracts": CONTRACTS})
+                            print(f"  PAPER BUY {CONTRACTS} {d['direction']} @ ${price:.3f}")
+                save(s)
         except HTTPError as e:
             if e.code in (401, 403):
                 raise  # bad key: stop the run so it shows red on GitHub
