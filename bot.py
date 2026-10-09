@@ -12,8 +12,8 @@ from urllib.request import urlopen, Request
 
 # ---- settings ----
 SERIES = "KXBTC15M"
-CONTRACTS = 300          # contracts per trade (~$150 at 50c, same as video)
-START_BALANCE = 1000.0   # fake dollars
+CONTRACTS = 30           # contracts per trade (~$15 at 50c: same 15% bet size as the video)
+START_BALANCE = 100.0    # fake dollars (matches the user's real $100 budget)
 MODEL = os.environ.get("AI_MODEL", "nemotron-3-nano:4b")
 AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
 AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
