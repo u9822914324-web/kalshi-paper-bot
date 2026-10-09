@@ -6,15 +6,16 @@ AI model `nemotron-3-nano:4b` (NVIDIA Nemotron 3 Nano, run free on GitHub's serv
 
 | Balance | Profit | Trades | Win rate | Open bets |
 |---|---|---|---|---|
-| $116.19 | +16.19 | 12 | 58% | 0 |
+| $93.29 | -6.71 | 13 | 54% | 0 |
 
 Start $100, no stop limits (balance can go negative). 30 contracts per trade, Kalshi taker fee included.
-Updated 2026-10-09 23:15 UTC.
+Updated 2026-10-09 23:30 UTC.
 
 ## Last 20 trades
 
 | Time | Side | Price | Result | P&L | Balance |
 |---|---|---|---|---|---|
+| 2026-10-09T23:18:53 | UP | $0.750 | LOSS | -22.90 | $93.29 |
 | 2026-10-09T23:03:37 | DOWN | $0.650 | WIN | +10.02 | $116.19 |
 | 2026-10-09T22:48:56 | UP | $0.520 | WIN | +13.87 | $106.17 |
 | 2026-10-09T22:33:59 | DOWN | $0.130 | LOSS | -4.14 | $92.30 |
