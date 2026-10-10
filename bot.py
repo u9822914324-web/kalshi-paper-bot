@@ -1,7 +1,7 @@
-"""Paper-trading bot: a local AI model (DeepSeek R1 14B, run with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
+"""Paper-trading bot: a local AI model (DeepSeek R1 8B, run with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
 
 Fake money only. Reads public Kalshi + Coinbase data, never places orders.
-Run:  python bot.py        (needs Ollama running: ollama pull deepseek-r1:14b; no API key)
+Run:  python bot.py        (needs Ollama running: ollama pull deepseek-r1:8b; no API key)
 Test: python bot.py test   (math check + live data fetch, no AI call)
 """
 import csv, json, math, os, re, subprocess, sys, time
@@ -14,7 +14,7 @@ from urllib.request import urlopen, Request
 SERIES = "KXBTC15M"
 CONTRACTS = 30           # contracts per trade (~$15 at 50c: same 15% bet size as the video)
 START_BALANCE = 100.0    # fake dollars (matches the user's real $100 budget)
-MODEL = os.environ.get("AI_MODEL", "deepseek-r1:14b")
+MODEL = os.environ.get("AI_MODEL", "deepseek-r1:8b")
 AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
 AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
 
@@ -61,7 +61,10 @@ def chat(prompt, max_tokens=2500):
         headers["Authorization"] = f"Bearer {AI_KEY}"
     # ponytail: 13 min timeout fits one 15-min market on a CPU runner; use a GPU or hosted API if it times out
     with urlopen(Request(AI_URL, data=body, headers=headers), timeout=780) as r:
-        return json.load(r)["choices"][0]["message"]["content"] or ""
+        data = json.load(r)
+    u = data.get("usage") or {}
+    print(f"  AI tokens: {u.get('prompt_tokens')} in, {u.get('completion_tokens')} out")
+    return data["choices"][0]["message"]["content"] or ""
 
 
 def parse_decision(text):

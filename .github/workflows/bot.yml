@@ -38,13 +38,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: python bot.py test
-      - name: Start DeepSeek R1 14B (free, runs on this server, no API key)
+      - name: Start DeepSeek R1 8B (free, runs on this server, no API key)
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           sudo systemctl stop ollama || true          # restart it ourselves with a bigger context window
           (OLLAMA_CONTEXT_LENGTH=8192 ollama serve > /tmp/ollama.log 2>&1 &)
           sleep 5
-          ollama pull deepseek-r1:14b
+          ollama pull deepseek-r1:8b
       - run: |
           git config user.name "paper-bot"
           git config user.email "paper-bot@users.noreply.github.com"
