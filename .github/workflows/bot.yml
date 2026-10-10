@@ -38,18 +38,26 @@ jobs:
         with:
           python-version: "3.12"
       - run: python bot.py test
-      - name: Start DeepSeek R1 8B (free, runs on this server, no API key)
+      - name: Pick the AI (OpenCode if a key is saved, else DeepSeek R1 8B on this server)
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          sudo systemctl stop ollama || true          # restart it ourselves with a bigger context window
-          (OLLAMA_CONTEXT_LENGTH=8192 ollama serve > /tmp/ollama.log 2>&1 &)
-          sleep 5
-          ollama pull deepseek-r1:8b
+          if [ -n "$OPENCODE_API_KEY" ]; then
+            echo "AI_URL=https://opencode.ai/zen/v1/chat/completions" >> "$GITHUB_ENV"
+            echo "AI_MODEL=nemotron-3-ultra-free" >> "$GITHUB_ENV"
+          else
+            curl -fsSL https://ollama.com/install.sh | sh
+            sudo systemctl stop ollama || true          # restart it ourselves with a bigger context window
+            (OLLAMA_CONTEXT_LENGTH=8192 ollama serve > /tmp/ollama.log 2>&1 &)
+            sleep 5
+            ollama pull deepseek-r1:8b
+          fi
       - run: |
           git config user.name "paper-bot"
           git config user.email "paper-bot@users.noreply.github.com"
       - run: python -u bot.py
         env:
+          AI_KEY: ${{ secrets.OPENCODE_API_KEY }}
           RUN_SECONDS: ${{ inputs.seconds || '20700' }}   # 5h45m, leaves time for setup + saving before GitHub's 6h limit
           PUSH: "1"              # bot pushes the scoreboard (README.md) after every settled trade
       - name: Save trades

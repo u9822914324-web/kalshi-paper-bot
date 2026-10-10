@@ -123,7 +123,7 @@ def publish(s):
     rate = f"{s['wins'] / s['trades']:.0%}" if s["trades"] else "n/a"
     (HERE / "README.md").write_text(f"""# Kalshi paper bot
 
-AI model `{MODEL}` (run free on GitHub's server, no API key) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
+AI model `{MODEL}` trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
 
 ## Scoreboard
 
