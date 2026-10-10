@@ -1,0 +1,11 @@
+{
+ "balance": 100.0,
+ "wins": 0,
+ "trades": 0,
+ "pending": [],
+ "seen": [
+  "KXBTC15M-26OCT100800-00",
+  "KXBTC15M-26OCT100815-15",
+  "KXBTC15M-26OCT100830-30"
+ ]
+}
