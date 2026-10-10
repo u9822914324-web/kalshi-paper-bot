@@ -9,7 +9,7 @@ AI model `deepseek-r1:14b` (run free on GitHub's server, no API key) trades Kals
 | $81.86 | -18.14 | 2 | 0% | 0 |
 
 Start $100, no stop limits (balance can go negative). 30 contracts per trade, Kalshi taker fee included.
-Updated 2026-10-10 11:30 UTC.
+Updated 2026-10-10 11:43 UTC.
 
 ## Last 20 trades
 
