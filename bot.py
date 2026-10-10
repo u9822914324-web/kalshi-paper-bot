@@ -1,7 +1,7 @@
-"""Paper-trading bot: NVIDIA Nemotron 3 Nano (run locally with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
+"""Paper-trading bot: a local AI model (DeepSeek R1 14B, run with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
 
 Fake money only. Reads public Kalshi + Coinbase data, never places orders.
-Run:  python bot.py        (needs Ollama running: ollama pull nemotron-3-nano:4b; no API key)
+Run:  python bot.py        (needs Ollama running: ollama pull deepseek-r1:14b; no API key)
 Test: python bot.py test   (math check + live data fetch, no AI call)
 """
 import csv, json, math, os, re, subprocess, sys, time
@@ -14,7 +14,7 @@ from urllib.request import urlopen, Request
 SERIES = "KXBTC15M"
 CONTRACTS = 30           # contracts per trade (~$15 at 50c: same 15% bet size as the video)
 START_BALANCE = 100.0    # fake dollars (matches the user's real $100 budget)
-MODEL = os.environ.get("AI_MODEL", "nemotron-3-nano:4b")
+MODEL = os.environ.get("AI_MODEL", "deepseek-r1:14b")
 AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
 AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
 
@@ -50,16 +50,17 @@ def candles(granularity, n):
     # Coinbase rows: [time, low, high, open, close, volume], newest first
     rows = get(f"https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity={granularity}")[:n]
     return [{"t": datetime.fromtimestamp(r[0], timezone.utc).strftime("%H:%M"),
-             "o": r[3], "h": r[2], "l": r[1], "c": r[4]} for r in reversed(rows)]
+             "o": round(r[3]), "h": round(r[2]), "l": round(r[1]), "c": round(r[4])} for r in reversed(rows)]
 
 
-def chat(prompt, max_tokens=4000):
+def chat(prompt, max_tokens=2500):
     body = json.dumps({"model": MODEL, "max_tokens": max_tokens,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     headers = {"Content-Type": "application/json", "User-Agent": "paper-bot"}
     if AI_KEY:
         headers["Authorization"] = f"Bearer {AI_KEY}"
-    with urlopen(Request(AI_URL, data=body, headers=headers), timeout=600) as r:  # CPU model: can be slow
+    # ponytail: 13 min timeout fits one 15-min market on a CPU runner; use a GPU or hosted API if it times out
+    with urlopen(Request(AI_URL, data=body, headers=headers), timeout=780) as r:
         return json.load(r)["choices"][0]["message"]["content"] or ""
 
 
@@ -82,10 +83,10 @@ Open reference: {m.get('yes_sub_title')}. Minutes left: {mins_left:.1f}.
 UP (yes) ask: ${m['yes_ask_dollars']}  |  DOWN (no) ask: ${m['no_ask_dollars']}  (payout $1 per contract)
 Taker fee ~0.07*P*(1-P) per contract.
 
-BTC-USD 1-minute candles (last 30):
-{json.dumps(candles(60, 30))}
-BTC-USD 15-minute candles (last 24):
-{json.dumps(candles(900, 24))}
+BTC-USD 1-minute candles (last 20):
+{json.dumps(candles(60, 20), separators=(",", ":"))}
+BTC-USD 15-minute candles (last 12):
+{json.dumps(candles(900, 12), separators=(",", ":"))}
 
 Pick UP, DOWN, or SKIP. Only pick a side if you think its win chance beats its ask price plus fee.
 End your reply with one line of JSON only: {{"direction": "UP" | "DOWN" | "SKIP", "reason": "<one sentence>"}}"""
@@ -119,7 +120,7 @@ def publish(s):
     rate = f"{s['wins'] / s['trades']:.0%}" if s["trades"] else "n/a"
     (HERE / "README.md").write_text(f"""# Kalshi paper bot
 
-AI model `{MODEL}` (NVIDIA Nemotron 3 Nano, run free on GitHub's server) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
+AI model `{MODEL}` (run free on GitHub's server, no API key) trades Kalshi 15-minute BTC up/down markets with **fake money**. It never places real orders.
 
 ## Scoreboard
 
@@ -176,12 +177,14 @@ def main():
                 close = datetime.fromisoformat(m["close_time"].replace("Z", "+00:00"))
                 mins_left = (close - datetime.now(timezone.utc)).total_seconds() / 60
                 if mins_left >= 12:  # skip markets joined mid-session
+                    t0 = time.time()
                     d = ask_ai(m, mins_left)
-                    print(f"{m['ticker']} AI: {d['direction']} - {d['reason'][:200]}")
+                    print(f"{m['ticker']} AI ({time.time() - t0:.0f}s): {d['direction']} - {d['reason'][:200]}")
                     if d["direction"] != "SKIP":
                         m = get(f"{KALSHI}/markets/{m['ticker']}")["market"]  # fresh quote
                         price = float(m["yes_ask_dollars" if d["direction"] == "UP" else "no_ask_dollars"])
-                        if 0 < price < 1:  # no balance limit: fake balance may go negative
+                        still_open = (close - datetime.now(timezone.utc)).total_seconds() > 60  # slow model guard
+                        if 0 < price < 1 and still_open:  # no balance limit: fake balance may go negative
                             s["pending"].append({"time": datetime.now().isoformat(timespec="seconds"),
                                                  "ticker": m["ticker"], "side": d["direction"],
                                                  "price": price, "contracts": CONTRACTS})

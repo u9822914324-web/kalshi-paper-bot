@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 */6 * * *"   # new run every 6 hours
   workflow_dispatch:         # "Run workflow" button to start it by hand
+    inputs:
+      seconds:
+        description: "How long to run, in seconds (default 5h45m)"
+        default: "20700"
 
 concurrency:
   group: bot                 # never two bots at once; next run waits for the last
@@ -20,7 +24,7 @@ jobs:
     steps:
       - name: Stop after the 7-day test
         env:
-          STOP_AT: "2026-10-15T20:05:00Z"   # 7 days after the first Nemotron run
+          STOP_AT: "2026-10-17T11:00:00Z"   # 7 days after the DeepSeek R1 run started
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$(date -u +%s)" -ge "$(date -u -d "$STOP_AT" +%s)" ]; then
@@ -34,18 +38,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: python bot.py test
-      - name: Start Nemotron 3 Nano (free, runs on this server, no API key)
+      - name: Start DeepSeek R1 14B (free, runs on this server, no API key)
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          (ollama serve > /tmp/ollama.log 2>&1 &)   # harmless if the installer already started it
+          sudo systemctl stop ollama || true          # restart it ourselves with a bigger context window
+          (OLLAMA_CONTEXT_LENGTH=8192 ollama serve > /tmp/ollama.log 2>&1 &)
           sleep 5
-          ollama pull nemotron-3-nano:4b
+          ollama pull deepseek-r1:14b
       - run: |
           git config user.name "paper-bot"
           git config user.email "paper-bot@users.noreply.github.com"
       - run: python -u bot.py
         env:
-          RUN_SECONDS: "20700"   # 5h45m, leaves time for setup + saving before GitHub's 6h limit
+          RUN_SECONDS: ${{ inputs.seconds || '20700' }}   # 5h45m, leaves time for setup + saving before GitHub's 6h limit
           PUSH: "1"              # bot pushes the scoreboard (README.md) after every settled trade
       - name: Save trades
         if: always()
