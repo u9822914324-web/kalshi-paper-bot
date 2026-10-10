@@ -1,7 +1,7 @@
-"""Paper-trading bot: a local AI model (DeepSeek R1 8B, run with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
+"""Paper-trading bot: a local AI model (Gemma 3 12B, run with Ollama) picks UP/DOWN on Kalshi 15-minute BTC markets.
 
 Fake money only. Reads public Kalshi + Coinbase data, never places orders.
-Run:  python bot.py        (needs Ollama running: ollama pull deepseek-r1:8b; no API key)
+Run:  python bot.py        (needs Ollama running: ollama pull gemma3:12b; no API key)
 Test: python bot.py test   (math check + live data fetch, no AI call)
 """
 import csv, json, math, os, re, subprocess, sys, time
@@ -14,7 +14,7 @@ from urllib.request import urlopen, Request
 SERIES = "KXBTC15M"
 CONTRACTS = 30           # contracts per trade (~$15 at 50c: same 15% bet size as the video)
 START_BALANCE = 100.0    # fake dollars (matches the user's real $100 budget)
-MODEL = os.environ.get("AI_MODEL", "deepseek-r1:8b")
+MODEL = os.environ.get("AI_MODEL", "gemma3:12b")
 AI_URL = os.environ.get("AI_URL", "http://localhost:11434/v1/chat/completions")  # Ollama, no key needed
 AI_KEY = os.environ.get("AI_KEY", "")                                               # only for hosted APIs
 
@@ -53,7 +53,7 @@ def candles(granularity, n):
              "o": round(r[3]), "h": round(r[2]), "l": round(r[1]), "c": round(r[4])} for r in reversed(rows)]
 
 
-def chat(prompt, max_tokens=2500):
+def chat(prompt, max_tokens=600):
     body = json.dumps({"model": MODEL, "max_tokens": max_tokens,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     headers = {"Content-Type": "application/json", "User-Agent": "paper-bot"}
@@ -92,7 +92,7 @@ BTC-USD 15-minute candles (last 12):
 {json.dumps(candles(900, 12), separators=(",", ":"))}
 
 Pick UP, DOWN, or SKIP. Only pick a side if you think its win chance beats its ask price plus fee.
-End your reply with one line of JSON only: {{"direction": "UP" | "DOWN" | "SKIP", "reason": "<one sentence>"}}"""
+Give at most 4 short sentences of reasoning, then end with one line of JSON only: {{"direction": "UP" | "DOWN" | "SKIP", "reason": "<one sentence>"}}"""
     return parse_decision(chat(prompt))
 
 

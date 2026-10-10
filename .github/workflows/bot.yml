@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python bot.py test
-      - name: Pick the AI (OpenCode if a key is saved, else DeepSeek R1 8B on this server)
+      - name: Pick the AI (OpenCode if a key is saved, else Gemma 3 12B on this server)
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
@@ -50,7 +50,7 @@ jobs:
             sudo systemctl stop ollama || true          # restart it ourselves with a bigger context window
             (OLLAMA_CONTEXT_LENGTH=8192 ollama serve > /tmp/ollama.log 2>&1 &)
             sleep 5
-            ollama pull deepseek-r1:8b
+            ollama pull gemma3:12b
           fi
       - run: |
           git config user.name "paper-bot"
