@@ -1,7 +1,7 @@
 {
- "balance": -29.72,
- "wins": 14,
- "trades": 35,
+ "balance": -20.0,
+ "wins": 15,
+ "trades": 36,
  "pending": [],
  "seen": [
   "KXBTC15M-26OCT101515-15",
@@ -47,6 +47,8 @@
   "KXBTC15M-26OCT110700-00",
   "KXBTC15M-26OCT110715-15",
   "KXBTC15M-26OCT110730-30",
-  "KXBTC15M-26OCT110745-45"
+  "KXBTC15M-26OCT110745-45",
+  "KXBTC15M-26OCT110800-00",
+  "KXBTC15M-26OCT110815-15"
  ]
 }
