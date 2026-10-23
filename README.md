@@ -9,7 +9,7 @@ AI model `nemotron-3-nano:4b` trades Kalshi 15-minute BTC up/down markets with *
 | $316.36 | +216.36 | 401 | 53% | 0 |
 
 Start $100, no stop limits (balance can go negative). 30 contracts per trade, Kalshi taker fee included.
-Updated 2026-10-23 16:29 UTC.
+Updated 2026-10-23 22:19 UTC.
 
 ## Last 20 trades
 
