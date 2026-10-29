@@ -1,11 +1,17 @@
 {
- "balance": -241.44,
- "wins": 366,
- "trades": 728,
- "pending": [],
+ "balance": -231.13,
+ "wins": 367,
+ "trades": 729,
+ "pending": [
+  {
+   "time": "2026-10-29T09:01:54",
+   "ticker": "KXBTC15M-26OCT290515-15",
+   "side": "UP",
+   "price": 0.64,
+   "contracts": 30
+  }
+ ],
  "seen": [
-  "KXBTC15M-26OCT281430-30",
-  "KXBTC15M-26OCT281445-45",
   "KXBTC15M-26OCT281500-00",
   "KXBTC15M-26OCT281515-15",
   "KXBTC15M-26OCT281530-30",
@@ -53,6 +59,8 @@
   "KXBTC15M-26OCT290200-00",
   "KXBTC15M-26OCT290215-15",
   "KXBTC15M-26OCT290230-30",
-  "KXBTC15M-26OCT290245-45"
+  "KXBTC15M-26OCT290245-45",
+  "KXBTC15M-26OCT290300-00",
+  "KXBTC15M-26OCT290515-15"
  ]
 }
