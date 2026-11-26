@@ -6,15 +6,16 @@ AI model `nemotron-3-nano:4b` trades Kalshi 15-minute BTC up/down markets with *
 
 | Balance | Profit | Trades | Win rate | Open bets |
 |---|---|---|---|---|
-| $-1564.49 | -1664.49 | 1978 | 49% | 0 |
+| $-1559.12 | -1659.12 | 1979 | 49% | 0 |
 
 Start $100, no stop limits (balance can go negative). 30 contracts per trade, Kalshi taker fee included.
-Updated 2026-11-26 20:45 UTC.
+Updated 2026-11-26 21:00 UTC.
 
 ## Last 20 trades
 
 | Time | Side | Price | Result | P&L | Balance |
 |---|---|---|---|---|---|
+| 2026-11-26T20:49:15 | DOWN | $0.810 | WIN | +5.37 | $-1559.12 |
 | 2026-11-26T20:34:48 | DOWN | $0.270 | LOSS | -8.52 | $-1564.49 |
 | 2026-11-26T20:19:46 | UP | $0.360 | LOSS | -11.29 | $-1555.97 |
 | 2026-11-26T19:34:36 | DOWN | $0.300 | LOSS | -9.45 | $-1544.68 |
@@ -34,4 +35,3 @@ Updated 2026-11-26 20:45 UTC.
 | 2026-11-26T06:06:16 | DOWN | $0.932 | WIN | +1.90 | $-1522.34 |
 | 2026-11-26T05:49:53 | UP | $0.190 | LOSS | -6.03 | $-1524.24 |
 | 2026-11-26T05:33:14 | UP | $0.380 | LOSS | -11.90 | $-1518.21 |
-| 2026-11-26T05:19:45 | UP | $0.660 | WIN | +9.72 | $-1506.31 |
